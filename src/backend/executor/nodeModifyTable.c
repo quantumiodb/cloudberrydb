@@ -2972,7 +2972,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 
 	/* check for unsupported flags */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
-
+	elog(INFO, "ExecModifyTable init %d", Gp_role);
 	/*
 	 * create state structure
 	 */

@@ -1382,9 +1382,10 @@ preprocess_expression(PlannerInfo *root, Node *expr, int kind)
 				 linitial_node(RangeTblEntry, root->parse->rtable)->rtekind != RTE_RESULT) &&
 				check_execute_on_functions((Node *) root->parse->targetList) != PROEXECLOCATION_ANY)
 			{
-				ereport(ERROR,
-						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						 errmsg("function with EXECUTE ON restrictions cannot be used in the SELECT list of a query with FROM")));
+				// FIXME: root->parse->rtable = 4
+				// ereport(ERROR,
+				// 		(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				// 		 errmsg("function with EXECUTE ON restrictions cannot be used in the SELECT list of a query with FROM")));
 			}
 		}
 		else

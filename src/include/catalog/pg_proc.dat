@@ -12487,9 +12487,9 @@
   proargtypes => 'oid tid oid', prosrc => 'ivm_visible_in_prestate' },
 { oid => '789', descr => 'ivm rule before ',
   proname => 'ivm_rule_before', provolatile => 'v', prorettype => 'bool',
-  proargtypes => 'oid', prosrc => 'ivm_rule_before' },
+  proexeclocation => 'c', proargtypes => 'oid', prosrc => 'ivm_rule_before' },
 { oid => '7201', descr => 'ivm rule after ',
   proname => 'ivm_rule_after', provolatile => 'v', prorettype => 'bool',
-  proargtypes => 'oid', prosrc => 'ivm_rule_after' },
+  proexeclocation => 's', proargtypes => 'oid', prosrc => 'ivm_rule_after' },
 ]
 
