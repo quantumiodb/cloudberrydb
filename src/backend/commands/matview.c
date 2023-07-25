@@ -1516,7 +1516,8 @@ ivm_immediate_maintenance(PG_FUNCTION_ARGS)
 	MemoryContext	oldcxt;
 	ListCell   *lc;
 	int			i;
-
+	GpRoleValue old_role = Gp_role;
+	elog(INFO, "trigger ivm_immediate_maintenance.");
 
 	/* Create a ParseState for rewriting the view definition query */
 	pstate = make_parsestate(NULL);
@@ -1775,7 +1776,7 @@ ivm_immediate_maintenance(PG_FUNCTION_ARGS)
 				tuplestore_clear(new_tuplestore);
 		}
 	}
-	Gp_role = GP_ROLE_EXECUTE;
+	Gp_role = old_role;
 
 	/* Clean up hash entry and delete tuplestores */
 	clean_up_IVM_hash_entry(entry, false);
@@ -1800,7 +1801,7 @@ ivm_immediate_maintenance(PG_FUNCTION_ARGS)
 
 	/* Restore userid and security context */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
-	elog(INFO, "trigger ivm_immediate_maintenance.");
+
 	return PointerGetDatum(NULL);
 }
 

@@ -51,6 +51,7 @@
 #include "commands/tablespace.h"
 #include "commands/trigger.h"
 #include "executor/execdebug.h"
+#include "executor/nodeModifyTable.h"
 #include "executor/nodeSubplan.h"
 #include "foreign/fdwapi.h"
 #include "jit/jit.h"
@@ -147,7 +148,6 @@ static void EvalPlanQualStart(EPQState *epqstate, Plan *planTree);
 static void AdjustReplicatedTableCounts(EState *estate);
 
 /* end of local decls */
-
 
 /* ----------------------------------------------------------------
  *		ExecutorStart
@@ -2315,6 +2315,18 @@ ExecPostprocessPlan(EState *estate)
 	 * query did not fetch all rows from them.  (We do this to ensure that
 	 * such nodes have predictable results.)
 	 */
+	if (Gp_role == GP_ROLE_DISPATCH)
+	{
+		foreach(lc, estate->es_auxmodifytables)
+		{
+			PlanState  *ps = (PlanState *) lfirst(lc);
+			ModifyTableState *node = castNode(ModifyTableState, ps);
+
+			fireASTriggers(node);
+		}
+		return;
+	}
+
 	foreach(lc, estate->es_auxmodifytables)
 	{
 		PlanState  *ps = (PlanState *) lfirst(lc);
