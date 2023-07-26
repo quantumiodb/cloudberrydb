@@ -681,7 +681,7 @@ refresh_matview_datafill(DestReceiver *dest, Query *query,
 	/* Plan the query which will generate data for the refresh. */
 
 	/* GPDB_PARALLEL_FIXME: hack here, use cursor_option to disable parallel */
-	if (!refreshClause->intoAO)
+	if (refreshClause && !refreshClause->intoAO)
 		plan = pg_plan_query(query, queryString, CURSOR_OPT_PARALLEL_OK, NULL);
 	else
 		plan = pg_plan_query(query, queryString, CURSOR_OPT_PARALLEL_NOT_OK, NULL);
@@ -2184,20 +2184,15 @@ calc_delta(Oid matviewOid, MV_TriggerTable *table, int rte_index, Query *query,
 {
 	ListCell *lc = list_nth_cell(query->rtable, rte_index - 1);
 	RangeTblEntry *rte = (RangeTblEntry *) lfirst(lc);
-	RefreshClause *refreshClause;
+
 	in_delta_calculation = true;
-
-	RangeVar *relation = makeRangeVar(get_namespace_name(get_rel_namespace(matviewOid)), get_rel_name(matviewOid), -1);
-
-	refreshClause = MakeRefreshClause(false, false, relation,
-										RelationIsAppendOptimized(table->rel));
 
 	/* Generate old delta */
 	if (list_length(table->old_tuplestores) > 0)
 	{
 		/* Replace the modified table with the old delta table and calculate the old view delta. */
 		replace_rte_with_delta(rte, table, false, queryEnv);
-		refresh_matview_datafill(dest_old, query, queryEnv, tupdesc_old, "", refreshClause);
+		refresh_matview_datafill(dest_old, query, queryEnv, tupdesc_old, "", NULL);
 	}
 
 	/* Generate new delta */
@@ -2205,7 +2200,7 @@ calc_delta(Oid matviewOid, MV_TriggerTable *table, int rte_index, Query *query,
 	{
 		/* Replace the modified table with the new delta table and calculate the new view delta*/
 		replace_rte_with_delta(rte, table, true, queryEnv);
-		refresh_matview_datafill(dest_new, query, queryEnv, tupdesc_new, "", refreshClause);
+		refresh_matview_datafill(dest_new, query, queryEnv, tupdesc_new, "", NULL);
 	}
 
 	in_delta_calculation = false;
