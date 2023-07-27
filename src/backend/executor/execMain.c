@@ -851,6 +851,13 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 		{
 			/* do nothing */
 			estate->es_got_eos = true;
+			if (estate->dispatcherState && estate->dispatcherState->primaryResults)
+			{
+				DispatchWaitMode waitMode = DISPATCH_WAIT_NONE;
+				if (estate->cancelUnfinished)
+					waitMode = DISPATCH_WAIT_FINISH;
+				cdbdisp_checkDispatchResult(estate->dispatcherState, waitMode);
+			}
 		}
 		else if (exec_identity == GP_NON_ROOT_ON_QE)
 		{
@@ -2310,13 +2317,9 @@ ExecPostprocessPlan(EState *estate)
 	 */
 	estate->es_direction = ForwardScanDirection;
 
-	/*
-	 * Run any secondary ModifyTable nodes to completion, in case the main
-	 * query did not fetch all rows from them.  (We do this to ensure that
-	 * such nodes have predictable results.)
-	 */
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
+		//FIXME: new var to replace es_auxmodifytables
 		foreach(lc, estate->es_auxmodifytables)
 		{
 			PlanState  *ps = (PlanState *) lfirst(lc);
@@ -2326,7 +2329,11 @@ ExecPostprocessPlan(EState *estate)
 		}
 		return;
 	}
-
+	/*
+	 * Run any secondary ModifyTable nodes to completion, in case the main
+	 * query did not fetch all rows from them.  (We do this to ensure that
+	 * such nodes have predictable results.)
+	 */
 	foreach(lc, estate->es_auxmodifytables)
 	{
 		PlanState  *ps = (PlanState *) lfirst(lc);
