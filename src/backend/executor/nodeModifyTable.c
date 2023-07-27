@@ -3480,7 +3480,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 											   estate->es_auxmodifytables);
 	}
 
-	if (Gp_role == GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH && !(eflags & EXEC_FLAG_EXPLAIN_ONLY))
 	{
 		estate->es_auxmodifytables = lcons(mtstate,
 											   estate->es_auxmodifytables);
