@@ -38,6 +38,7 @@
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
+#include "pgstat.h"
 
 #include "access/heapam.h"
 #include "access/htup_details.h"
@@ -851,12 +852,61 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 		{
 			/* do nothing */
 			estate->es_got_eos = true;
+			int primaryWriterSliceIndex = PrimaryWriterSliceIndex(estate);
 			if (estate->dispatcherState && estate->dispatcherState->primaryResults)
 			{
+				CdbDispatchResults *pr = NULL;
+				CdbDispatcherState *ds = estate->dispatcherState;
 				DispatchWaitMode waitMode = DISPATCH_WAIT_NONE;
+				ErrorData *qeError = NULL;
+
+				/*
+				* If we are finishing a query before all the tuples of the query
+				* plan were fetched we must call ExecSquelchNode before checking
+				* the dispatch results in order to tell the nodes below we no longer
+				* need any more tuples.
+				*/
+				if (!estate->es_got_eos)
+				{
+					ExecSquelchNode(queryDesc->planstate);
+				}
+
+				/*
+				* Wait for completion of all QEs.  We send a "graceful" query
+				* finish, not cancel signal.  Since the query has succeeded,
+				* don't confuse QEs by sending erroneous message.
+				*/
 				if (estate->cancelUnfinished)
 					waitMode = DISPATCH_WAIT_FINISH;
-				cdbdisp_checkDispatchResult(estate->dispatcherState, waitMode);
+
+				cdbdisp_checkDispatchResult(ds, waitMode);
+
+				pr = cdbdisp_getDispatchResults(ds, &qeError);
+
+				if (qeError)
+				{
+					estate->dispatcherState = NULL;
+					FlushErrorState();
+					ReThrowError(qeError);
+				}
+
+				/* collect pgstat from QEs for current transaction level */
+				pgstat_combine_from_qe(pr, primaryWriterSliceIndex);
+
+				/* get num of rows processed from writer QEs. */
+				estate->es_processed +=
+					cdbdisp_sumCmdTuples(pr, primaryWriterSliceIndex);
+
+				/* sum up rejected rows if any (single row error handling only) */
+				cdbdisp_sumRejectedRows(pr);
+
+				/*
+				* Check and free the results of all gangs. If any QE had an
+				* error, report it and exit to our error handler via PG_THROW.
+				* NB: This call doesn't wait, because we already waited above.
+				*/
+				estate->dispatcherState = NULL;
+				cdbdisp_destroyDispatcherState(ds);
 			}
 		}
 		else if (exec_identity == GP_NON_ROOT_ON_QE)
